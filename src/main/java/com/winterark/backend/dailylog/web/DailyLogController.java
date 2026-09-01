@@ -3,6 +3,8 @@ package com.winterark.backend.dailylog.web;
 import com.winterark.backend.dailylog.payload.AdHocTaskRequestDTO;
 import com.winterark.backend.dailylog.payload.DailyLogResponseDTO;
 import com.winterark.backend.dailylog.payload.DailyTaskResponseDTO;
+import com.winterark.backend.dailylog.payload.SkippedTaskDTO;
+import com.winterark.backend.dailylog.payload.TaskStatusRequestDTO;
 import com.winterark.backend.dailylog.payload.TaskToggleRequestDTO;
 import com.winterark.backend.dailylog.service.DailyLogService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -35,10 +38,23 @@ public class DailyLogController {
         return new ResponseEntity<>(dailyLogService.addAdHocTask(logId, request.getTaskContent()), HttpStatus.CREATED);
     }
 
+    @PatchMapping("/tasks/{taskId}/status")
+    public ResponseEntity<DailyTaskResponseDTO> updateTaskStatus(
+            @PathVariable UUID taskId,
+            @RequestBody TaskStatusRequestDTO request) {
+        return ResponseEntity.ok(dailyLogService.updateTaskStatus(taskId, request.getStatus()));
+    }
+
     @PatchMapping("/tasks/{taskId}/toggle")
     public ResponseEntity<DailyTaskResponseDTO> toggleTaskCompletion(
             @PathVariable UUID taskId,
             @RequestBody TaskToggleRequestDTO request) {
         return ResponseEntity.ok(dailyLogService.toggleTaskCompletion(taskId, request.isCompleted()));
+    }
+
+    @GetMapping("/goals/{goalId}/skipped-tasks")
+    public ResponseEntity<List<SkippedTaskDTO>> getSkippedTasks(
+            @PathVariable UUID goalId) {
+        return ResponseEntity.ok(dailyLogService.getSkippedTasks(goalId));
     }
 }

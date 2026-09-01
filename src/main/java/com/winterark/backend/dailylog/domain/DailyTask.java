@@ -24,9 +24,24 @@ public class DailyTask extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String taskContent;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private boolean isCompleted = false;
+    @Builder.Default
+    private TaskStatus status = TaskStatus.PENDING;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isAdHoc = false;
+
+    public boolean isCompleted() {
+        return this.status == TaskStatus.COMPLETED;
+    }
+
+    public boolean isSkipped() {
+        return this.status == TaskStatus.SKIPPED;
+    }
+
+    public boolean isPending() {
+        return this.status == TaskStatus.PENDING;
+    }
 }

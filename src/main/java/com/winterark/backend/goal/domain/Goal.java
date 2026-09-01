@@ -9,6 +9,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Builder;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.EnumSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "goals")
 @Getter
@@ -27,4 +32,21 @@ public class Goal extends BaseEntity {
 
     @Column(nullable = true)
     private String tagLine;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "goal_active_days", joinColumns = @JoinColumn(name = "goal_id"))
+    @Column(name = "day_of_week")
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Set<DayOfWeek> activeDays = EnumSet.allOf(DayOfWeek.class);
+
+    @Column(name = "timezone", nullable = false)
+    @Builder.Default
+    private String timezone = "UTC";
 }

@@ -34,6 +34,15 @@ public class GoalController {
         return new ResponseEntity<>(goalService.createGoal(user, request), HttpStatus.CREATED);
     }
 
+    @PutMapping("/{goalId}")
+    public ResponseEntity<GoalResponseDTO> updateGoal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID goalId,
+            @RequestBody GoalRequestDTO request) {
+        User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
+        return ResponseEntity.ok(goalService.updateGoal(goalId, user, request));
+    }
+
     @GetMapping
     public ResponseEntity<List<GoalResponseDTO>> getUserGoals(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -41,11 +50,33 @@ public class GoalController {
         return ResponseEntity.ok(goalService.getUserGoals(user));
     }
 
+    @GetMapping("/{goalId}/predefined-tasks")
+    public ResponseEntity<List<PredefinedTaskResponseDTO>> getPredefinedTasks(
+            @PathVariable UUID goalId) {
+        return ResponseEntity.ok(goalService.getPredefinedTasks(goalId));
+    }
+
     @PostMapping("/{goalId}/predefined-tasks")
     public ResponseEntity<PredefinedTaskResponseDTO> addPredefinedTask(
             @PathVariable UUID goalId,
             @RequestBody PredefinedTaskRequestDTO request) {
         return new ResponseEntity<>(goalService.addPredefinedTask(goalId, request), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{goalId}/predefined-tasks/{taskId}")
+    public ResponseEntity<PredefinedTaskResponseDTO> updatePredefinedTask(
+            @PathVariable UUID goalId,
+            @PathVariable UUID taskId,
+            @RequestBody PredefinedTaskRequestDTO request) {
+        return ResponseEntity.ok(goalService.updatePredefinedTask(goalId, taskId, request));
+    }
+
+    @DeleteMapping("/{goalId}/predefined-tasks/{taskId}")
+    public ResponseEntity<Void> deletePredefinedTask(
+            @PathVariable UUID goalId,
+            @PathVariable UUID taskId) {
+        goalService.deletePredefinedTask(goalId, taskId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{goalId}/stats")

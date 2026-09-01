@@ -4,8 +4,10 @@ import com.winterark.backend.dailylog.domain.DailyLog;
 import com.winterark.backend.dailylog.domain.DailyLogRepository;
 import com.winterark.backend.dailylog.domain.DailyTask;
 import com.winterark.backend.dailylog.domain.DailyTaskRepository;
+import com.winterark.backend.dailylog.domain.TaskStatus;
 import com.winterark.backend.dailylog.payload.DailyLogResponseDTO;
 import com.winterark.backend.dailylog.payload.DailyTaskResponseDTO;
+import com.winterark.backend.dailylog.payload.SkippedTaskDTO;
 import com.winterark.backend.goal.domain.Goal;
 import com.winterark.backend.goal.domain.GoalRepository;
 import com.winterark.backend.goal.domain.PredefinedTask;
@@ -14,7 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,6 +37,22 @@ public class DailyLogService {
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new IllegalArgumentException("Goal not found"));
 
+        // Smart log generation: check if date is a Rest Day
+        boolean isWithinDates = (goal.getStartDate() == null || !date.isBefore(goal.getStartDate()))
+                && (goal.getEndDate() == null || !date.isAfter(goal.getEndDate()));
+
+        boolean isActiveDay = goal.getActiveDays() == null
+                || goal.getActiveDays().isEmpty()
+                || goal.getActiveDays().contains(date.getDayOfWeek());
+
+        if (!isWithinDates || !isActiveDay) {
+            return DailyLogResponseDTO.builder()
+                    .targetDate(date)
+                    .restDay(true)
+                    .tasks(Collections.emptyList())
+                    .build();
+        }
+
         DailyLog dailyLog = dailyLogRepository.findByGoalIdAndTargetDate(goalId, date)
                 .orElseGet(() -> createDailyLogFromPredefined(goal, date));
 
@@ -41,6 +61,7 @@ public class DailyLogService {
         return DailyLogResponseDTO.builder()
                 .logId(dailyLog.getId())
                 .targetDate(dailyLog.getTargetDate())
+                .restDay(false)
                 .tasks(tasks.stream().map(this::mapToTaskDTO).collect(Collectors.toList()))
                 .build();
     }
@@ -53,12 +74,12 @@ public class DailyLogService {
         dailyLogRepository.save(log);
 
         List<PredefinedTask> predefinedTasks = predefinedTaskRepository.findByGoalId(goal.getId());
-        
-        List<DailyTask> tasksToCreate = predefinedTasks.stream().map(pt -> 
+
+        List<DailyTask> tasksToCreate = predefinedTasks.stream().map(pt ->
                 DailyTask.builder()
                         .dailyLog(log)
                         .taskContent(pt.getTaskContent())
-                        .isCompleted(false)
+                        .status(TaskStatus.PENDING)
                         .isAdHoc(false)
                         .build()
         ).collect(Collectors.toList());
@@ -75,10 +96,19 @@ public class DailyLogService {
         DailyTask task = DailyTask.builder()
                 .dailyLog(log)
                 .taskContent(content)
-                .isCompleted(false)
+                .status(TaskStatus.PENDING)
                 .isAdHoc(true)
                 .build();
-        
+
+        task = dailyTaskRepository.save(task);
+        return mapToTaskDTO(task);
+    }
+
+    @Transactional
+    public DailyTaskResponseDTO updateTaskStatus(UUID taskId, TaskStatus status) {
+        DailyTask task = dailyTaskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        task.setStatus(status);
         task = dailyTaskRepository.save(task);
         return mapToTaskDTO(task);
     }
@@ -87,18 +117,31 @@ public class DailyLogService {
     public DailyTaskResponseDTO toggleTaskCompletion(UUID taskId, boolean isCompleted) {
         DailyTask task = dailyTaskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found"));
-        task.setCompleted(isCompleted);
+        task.setStatus(isCompleted ? TaskStatus.COMPLETED : TaskStatus.PENDING);
         task = dailyTaskRepository.save(task);
         return mapToTaskDTO(task);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SkippedTaskDTO> getSkippedTasks(UUID goalId) {
+        List<DailyTask> skippedTasks = dailyTaskRepository.findSkippedTasksByGoalId(goalId);
+        return skippedTasks.stream()
+                .map(t -> SkippedTaskDTO.builder()
+                        .taskId(t.getId())
+                        .taskContent(t.getTaskContent())
+                        .targetDate(t.getDailyLog().getTargetDate())
+                        .isAdHoc(t.isAdHoc())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private DailyTaskResponseDTO mapToTaskDTO(DailyTask task) {
         return DailyTaskResponseDTO.builder()
                 .taskId(task.getId())
                 .taskContent(task.getTaskContent())
+                .status(task.getStatus())
                 .completed(task.isCompleted())
                 .adHoc(task.isAdHoc())
                 .build();
     }
-
 }
