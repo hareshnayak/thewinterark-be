@@ -22,9 +22,21 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
 
+    private static final java.util.regex.Pattern EMAIL_REGEX = 
+            java.util.regex.Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
     @Transactional
     public AuthResponseDTO register(AuthRequestDTO request) {
-        if (userRepository.existsByUsername(request.getUsername()) || userRepository.existsByEmail(request.getEmail())) {
+        if (request.getEmail() == null || !EMAIL_REGEX.matcher(request.getEmail().trim()).matches()) {
+            throw new IllegalArgumentException("Please provide a valid email address");
+        }
+        if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be empty");
+        }
+        if (request.getPassword() == null || request.getPassword().length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters");
+        }
+        if (userRepository.existsByUsername(request.getUsername().trim()) || userRepository.existsByEmail(request.getEmail().trim())) {
             throw new IllegalArgumentException("Username or Email already exists");
         }
 

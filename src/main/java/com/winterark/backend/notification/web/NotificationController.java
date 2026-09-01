@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final WebPushService webPushService;
+    private final com.winterark.backend.notification.service.PushNotificationService pushNotificationService;
     private final UserRepository userRepository;
 
     @PostMapping("/subscribe")
@@ -26,5 +27,13 @@ public class NotificationController {
         User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
         webPushService.subscribe(user, request);
         return new ResponseEntity<>(HttpStatus.CREATED);
+    }
+
+    @PostMapping("/test")
+    public ResponseEntity<Void> sendTestNotification(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
+        pushNotificationService.sendNudge(user, "The Winter Ark");
+        return ResponseEntity.ok().build();
     }
 }

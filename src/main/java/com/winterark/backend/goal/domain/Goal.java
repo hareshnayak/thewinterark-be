@@ -49,4 +49,8 @@ public class Goal extends BaseEntity {
     @Column(name = "timezone", nullable = false)
     @Builder.Default
     private String timezone = "UTC";
+
+    @Column(name = "is_archived", nullable = false)
+    @Builder.Default
+    private boolean archived = false;
 }

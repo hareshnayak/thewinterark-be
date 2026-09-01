@@ -13,5 +13,6 @@ public interface GoalShareRepository extends JpaRepository<GoalShare, UUID> {
     List<GoalShare> findByGoalId(UUID goalId);
     Optional<GoalShare> findByGoalIdAndFriendId(UUID goalId, UUID friendId);
     void deleteByGoalIdAndFriendId(UUID goalId, UUID friendId);
+    void deleteByGoalId(UUID goalId);
     boolean existsByGoalIdAndFriendId(UUID goalId, UUID friendId);
 }

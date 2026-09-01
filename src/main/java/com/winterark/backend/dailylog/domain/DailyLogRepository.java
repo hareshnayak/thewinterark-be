@@ -11,5 +11,8 @@ import java.util.UUID;
 @Repository
 public interface DailyLogRepository extends JpaRepository<DailyLog, UUID> {
     Optional<DailyLog> findByGoalIdAndTargetDate(UUID goalId, LocalDate targetDate);
+    List<DailyLog> findByGoalId(UUID goalId);
     List<DailyLog> findByGoalIdAndTargetDateBetween(UUID goalId, LocalDate startDate, LocalDate endDate);
+    List<DailyLog> findByGoalIdAndTargetDateLessThanEqualOrderByTargetDateDesc(UUID goalId, LocalDate targetDate);
+    void deleteByGoalId(UUID goalId);
 }

@@ -85,4 +85,35 @@ public class GoalController {
             @RequestParam(defaultValue = "30") int days) {
         return ResponseEntity.ok(goalService.getGoalStats(goalId, days));
     }
+
+    @GetMapping("/{goalId}/streak")
+    public ResponseEntity<com.winterark.backend.goal.payload.GoalStreakResponseDTO> getGoalStreak(
+            @PathVariable UUID goalId) {
+        return ResponseEntity.ok(goalService.getGoalStreak(goalId));
+    }
+
+    @PatchMapping("/{goalId}/archive")
+    public ResponseEntity<GoalResponseDTO> archiveGoal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID goalId) {
+        User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
+        return ResponseEntity.ok(goalService.archiveGoal(goalId, user));
+    }
+
+    @PatchMapping("/{goalId}/unarchive")
+    public ResponseEntity<GoalResponseDTO> unarchiveGoal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID goalId) {
+        User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
+        return ResponseEntity.ok(goalService.unarchiveGoal(goalId, user));
+    }
+
+    @DeleteMapping("/{goalId}")
+    public ResponseEntity<Void> deleteGoal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID goalId) {
+        User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow();
+        goalService.deleteGoal(goalId, user);
+        return ResponseEntity.noContent().build();
+    }
 }

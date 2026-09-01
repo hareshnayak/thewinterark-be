@@ -108,6 +108,11 @@ public class DailyLogService {
     public DailyTaskResponseDTO updateTaskStatus(UUID taskId, TaskStatus status) {
         DailyTask task = dailyTaskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+
+        if (task.getDailyLog().getTargetDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Cannot update status of tasks scheduled for future dates.");
+        }
+
         task.setStatus(status);
         task = dailyTaskRepository.save(task);
         return mapToTaskDTO(task);
@@ -117,6 +122,11 @@ public class DailyLogService {
     public DailyTaskResponseDTO toggleTaskCompletion(UUID taskId, boolean isCompleted) {
         DailyTask task = dailyTaskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+
+        if (task.getDailyLog().getTargetDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Cannot complete tasks scheduled for future dates.");
+        }
+
         task.setStatus(isCompleted ? TaskStatus.COMPLETED : TaskStatus.PENDING);
         task = dailyTaskRepository.save(task);
         return mapToTaskDTO(task);

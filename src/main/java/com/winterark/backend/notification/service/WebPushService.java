@@ -29,12 +29,14 @@ public class WebPushService {
     public void subscribe(User user, PushSubscriptionRequestDTO request) {
         try {
             String keysJson = objectMapper.writeValueAsString(request.getKeys());
-            PushSubscription subscription = PushSubscription.builder()
-                    .user(user)
-                    .endpoint(request.getEndpoint())
-                    .keysJson(keysJson)
-                    .build();
+            PushSubscription subscription = subscriptionRepository.findByEndpoint(request.getEndpoint())
+                    .orElseGet(() -> PushSubscription.builder()
+                            .endpoint(request.getEndpoint())
+                            .build());
+            subscription.setUser(user);
+            subscription.setKeysJson(keysJson);
             subscriptionRepository.save(subscription);
+            log.info("Registered push subscription for user: {} with endpoint: {}", user.getUsername(), request.getEndpoint());
         } catch (Exception e) {
             log.error("Failed to save subscription", e);
             throw new RuntimeException("Could not subscribe to web push");

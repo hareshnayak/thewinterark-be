@@ -1,5 +1,6 @@
 package com.winterark.backend.goal.payload;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,5 +24,10 @@ public class GoalResponseDTO {
     private LocalDate endDate;
     private Set<DayOfWeek> activeDays;
     private String timezone;
+    private int currentStreak;
+    @JsonProperty("isArchived")
+    private boolean archived;
+    @JsonProperty("hasCompletedTasks")
+    private boolean hasCompletedTasks;
     private LocalDateTime createdAt;
 }

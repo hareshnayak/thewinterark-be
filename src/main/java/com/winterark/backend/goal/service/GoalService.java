@@ -5,6 +5,7 @@ import com.winterark.backend.dailylog.domain.DailyLog;
 import com.winterark.backend.dailylog.domain.DailyLogRepository;
 import com.winterark.backend.dailylog.domain.DailyTask;
 import com.winterark.backend.dailylog.domain.DailyTaskRepository;
+import com.winterark.backend.dailylog.domain.TaskStatus;
 import com.winterark.backend.dailylog.payload.GoalStatsResponseDTO;
 import com.winterark.backend.goal.domain.Goal;
 import com.winterark.backend.goal.domain.GoalRepository;
@@ -12,8 +13,10 @@ import com.winterark.backend.goal.domain.PredefinedTask;
 import com.winterark.backend.goal.domain.PredefinedTaskRepository;
 import com.winterark.backend.goal.payload.GoalRequestDTO;
 import com.winterark.backend.goal.payload.GoalResponseDTO;
+import com.winterark.backend.goal.payload.GoalStreakResponseDTO;
 import com.winterark.backend.goal.payload.PredefinedTaskRequestDTO;
 import com.winterark.backend.goal.payload.PredefinedTaskResponseDTO;
+import com.winterark.backend.social.domain.GoalShareRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class GoalService {
     private final PredefinedTaskRepository predefinedTaskRepository;
     private final DailyLogRepository dailyLogRepository;
     private final DailyTaskRepository dailyTaskRepository;
+    private final GoalShareRepository goalShareRepository;
 
     @Transactional
     public GoalResponseDTO createGoal(User user, GoalRequestDTO request) {
@@ -50,6 +54,7 @@ public class GoalService {
                 .endDate(request.getEndDate())
                 .activeDays(activeDays)
                 .timezone(request.getTimezone() != null ? request.getTimezone() : "UTC")
+                .archived(false)
                 .build();
         goal = goalRepository.save(goal);
         return mapToGoalResponse(goal);
@@ -69,9 +74,16 @@ public class GoalService {
         if (request.getTagLine() != null) {
             goal.setTagLine(request.getTagLine().trim());
         }
-        if (request.getStartDate() != null) {
+
+        // Start Date Lock Rule: Once tasks are checked off, start date cannot be changed
+        if (request.getStartDate() != null && !request.getStartDate().equals(goal.getStartDate())) {
+            boolean hasCompleted = dailyTaskRepository.existsByDailyLogGoalIdAndStatus(goalId, TaskStatus.COMPLETED);
+            if (hasCompleted) {
+                throw new IllegalArgumentException("Start date cannot be changed once tasks have already been checked off.");
+            }
             goal.setStartDate(request.getStartDate());
         }
+
         if (request.getEndDate() != null) {
             goal.setEndDate(request.getEndDate());
         }
@@ -86,9 +98,69 @@ public class GoalService {
         return mapToGoalResponse(goal);
     }
 
+    @Transactional
+    public GoalResponseDTO archiveGoal(UUID goalId, User user) {
+        Goal goal = goalRepository.findById(goalId)
+                .orElseThrow(() -> new IllegalArgumentException("Goal not found"));
+        if (!goal.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Not your goal to archive");
+        }
+        goal.setArchived(true);
+        goal = goalRepository.save(goal);
+        return mapToGoalResponse(goal);
+    }
+
+    @Transactional
+    public GoalResponseDTO unarchiveGoal(UUID goalId, User user) {
+        Goal goal = goalRepository.findById(goalId)
+                .orElseThrow(() -> new IllegalArgumentException("Goal not found"));
+        if (!goal.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Not your goal to unarchive");
+        }
+        goal.setArchived(false);
+        goal = goalRepository.save(goal);
+        return mapToGoalResponse(goal);
+    }
+
+    @Transactional
+    public void deleteGoal(UUID goalId, User user) {
+        Goal goal = goalRepository.findById(goalId)
+                .orElseThrow(() -> new IllegalArgumentException("Goal not found"));
+        if (!goal.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Not your goal to delete");
+        }
+
+        // 1. Delete all daily tasks under this goal's daily logs
+        List<DailyLog> logs = dailyLogRepository.findByGoalId(goalId);
+        for (DailyLog log : logs) {
+            List<DailyTask> tasks = dailyTaskRepository.findByDailyLogId(log.getId());
+            dailyTaskRepository.deleteAll(tasks);
+        }
+
+        // 2. Delete daily logs
+        dailyLogRepository.deleteByGoalId(goalId);
+
+        // 3. Delete predefined tasks
+        predefinedTaskRepository.deleteByGoalId(goalId);
+
+        // 4. Delete goal shares
+        goalShareRepository.deleteByGoalId(goalId);
+
+        // 5. Delete the goal entity
+        goalRepository.delete(goal);
+    }
+
     @Transactional(readOnly = true)
     public List<GoalResponseDTO> getUserGoals(User user) {
+        return goalRepository.findByUserIdAndArchivedFalse(user.getId()).stream()
+                .map(this::mapToGoalResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<GoalResponseDTO> getArchivedGoals(User user) {
         return goalRepository.findByUserId(user.getId()).stream()
+                .filter(Goal::isArchived)
                 .map(this::mapToGoalResponse)
                 .collect(Collectors.toList());
     }
@@ -166,7 +238,54 @@ public class GoalService {
         return stats;
     }
 
+    @Transactional(readOnly = true)
+    public GoalStreakResponseDTO getGoalStreak(UUID goalId) {
+        LocalDate today = LocalDate.now();
+        List<DailyLog> pastLogs = dailyLogRepository.findByGoalIdAndTargetDateLessThanEqualOrderByTargetDateDesc(goalId, today);
+
+        int currentStreak = 0;
+        int bestStreak = 0;
+        int tempStreak = 0;
+        boolean calculatingCurrent = true;
+
+        for (DailyLog logItem : pastLogs) {
+            List<DailyTask> tasks = dailyTaskRepository.findByDailyLogId(logItem.getId());
+            if (tasks.isEmpty()) continue;
+
+            boolean allDone = tasks.stream().allMatch(DailyTask::isCompleted);
+            if (allDone) {
+                tempStreak++;
+                if (calculatingCurrent) {
+                    currentStreak++;
+                }
+                if (tempStreak > bestStreak) {
+                    bestStreak = tempStreak;
+                }
+            } else {
+                if (logItem.getTargetDate().equals(today) && calculatingCurrent) {
+                    // Today is still ongoing
+                    continue;
+                }
+                calculatingCurrent = false;
+                tempStreak = 0;
+            }
+        }
+
+        if (bestStreak < currentStreak) {
+            bestStreak = currentStreak;
+        }
+
+        return GoalStreakResponseDTO.builder()
+                .goalId(goalId)
+                .currentStreak(currentStreak)
+                .bestStreak(bestStreak)
+                .build();
+    }
+
     private GoalResponseDTO mapToGoalResponse(Goal goal) {
+        int streak = getGoalStreak(goal.getId()).getCurrentStreak();
+        boolean hasCompleted = dailyTaskRepository.existsByDailyLogGoalIdAndStatus(goal.getId(), TaskStatus.COMPLETED);
+
         return GoalResponseDTO.builder()
                 .id(goal.getId())
                 .title(goal.getTitle())
@@ -175,6 +294,9 @@ public class GoalService {
                 .endDate(goal.getEndDate())
                 .activeDays(goal.getActiveDays())
                 .timezone(goal.getTimezone())
+                .currentStreak(streak)
+                .archived(goal.isArchived())
+                .hasCompletedTasks(hasCompleted)
                 .createdAt(goal.getCreatedAt())
                 .build();
     }

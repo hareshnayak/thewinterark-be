@@ -38,6 +38,7 @@ public class SocialService {
     private final FriendshipRepository friendshipRepository;
     private final DailyLogRepository dailyLogRepository;
     private final DailyTaskRepository dailyTaskRepository;
+    private final com.winterark.backend.goal.service.GoalService goalService;
 
     @Transactional
     public void sendFriendRequest(User currentUser, UUID targetUserId) {
@@ -178,8 +179,9 @@ public class SocialService {
 
         for (GoalShare share : shares) {
             Goal goal = share.getGoal();
+            if (goal.isArchived()) continue;
             int progress = calculateTodayProgress(goal.getId());
-            int streak = calculateStreak(goal.getId());
+            int streak = goalService.getGoalStreak(goal.getId()).getCurrentStreak();
             int total = getTodayTotalTasks(goal.getId());
             int completed = getTodayCompletedTasks(goal.getId());
 

@@ -9,4 +9,5 @@ import java.util.UUID;
 @Repository
 public interface GoalRepository extends JpaRepository<Goal, UUID> {
     List<Goal> findByUserId(UUID userId);
+    List<Goal> findByUserIdAndArchivedFalse(UUID userId);
 }

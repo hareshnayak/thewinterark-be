@@ -9,4 +9,5 @@ import java.util.UUID;
 @Repository
 public interface PredefinedTaskRepository extends JpaRepository<PredefinedTask, UUID> {
     List<PredefinedTask> findByGoalId(UUID goalId);
+    void deleteByGoalId(UUID goalId);
 }

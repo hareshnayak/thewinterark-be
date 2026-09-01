@@ -13,6 +13,8 @@ public interface DailyTaskRepository extends JpaRepository<DailyTask, UUID> {
     List<DailyTask> findByDailyLogId(UUID dailyLogId);
     List<DailyTask> findByDailyLogIdAndStatus(UUID dailyLogId, TaskStatus status);
 
+    boolean existsByDailyLogGoalIdAndStatus(UUID goalId, TaskStatus status);
+
     @Query("SELECT t FROM DailyTask t WHERE t.dailyLog.goal.id = :goalId AND t.status = 'SKIPPED' ORDER BY t.dailyLog.targetDate DESC")
     List<DailyTask> findSkippedTasksByGoalId(@Param("goalId") UUID goalId);
 
