@@ -96,8 +96,9 @@ public class DailyLogService {
         return DailyTaskResponseDTO.builder()
                 .taskId(task.getId())
                 .taskContent(task.getTaskContent())
-                .isCompleted(task.isCompleted())
-                .isAdHoc(task.isAdHoc())
+                .completed(task.isCompleted())
+                .adHoc(task.isAdHoc())
                 .build();
     }
+
 }

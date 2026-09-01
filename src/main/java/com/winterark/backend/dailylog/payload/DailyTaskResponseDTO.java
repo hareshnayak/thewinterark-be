@@ -1,5 +1,6 @@
 package com.winterark.backend.dailylog.payload;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +14,8 @@ import java.util.UUID;
 public class DailyTaskResponseDTO {
     private UUID taskId;
     private String taskContent;
-    private boolean isCompleted;
-    private boolean isAdHoc;
+    @JsonProperty("isCompleted")
+    private boolean completed;
+    @JsonProperty("isAdHoc")
+    private boolean adHoc;
 }

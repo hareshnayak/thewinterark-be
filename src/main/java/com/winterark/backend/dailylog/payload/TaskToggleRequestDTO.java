@@ -1,8 +1,10 @@
 package com.winterark.backend.dailylog.payload;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
 public class TaskToggleRequestDTO {
-    private boolean isCompleted;
+    @JsonProperty("isCompleted")
+    private boolean completed;
 }
