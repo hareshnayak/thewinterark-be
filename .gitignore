@@ -34,3 +34,6 @@ build/
 
 ### application prop file ###
 src/main/resources/application-dev.properties
+application-dev.properties
+src/main/resources/firebase-service-account.json
+firebase-service-account.json
